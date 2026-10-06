@@ -78,9 +78,24 @@ public class Program
         .AddEntityFrameworkStores<AuthenticateContext>()
         .AddDefaultTokenProviders();
 
-        // ========= JWT Configuration =========
+        // ========= JWT Configuration (Fail-Fast Early Validation AT-04) =========
+        const int minimumJwtKeyLength = 32;
         var jwtConfig = builder.Configuration.GetSection("Jwt");
-        var keyText = jwtConfig["Key"] ?? throw new ArgumentNullException("JWT Key");
+        var keyText = jwtConfig["Key"];
+
+        if (string.IsNullOrWhiteSpace(keyText))
+        {
+            throw new InvalidOperationException(
+                "CRITICAL SECURITY CONFIGURATION ERROR (AT-04): La clave de firmado JWT (Jwt:Key) no está configurada. " +
+                "Por motivos de seguridad, defina esta clave mediante la variable de entorno 'Jwt__Key' o mediante .NET User Secrets.");
+        }
+
+        if (keyText.Length < minimumJwtKeyLength)
+        {
+            throw new InvalidOperationException(
+                $"CRITICAL SECURITY CONFIGURATION ERROR (AT-04): La clave de firmado JWT (Jwt:Key) no cumple con la longitud mínima requerida de {minimumJwtKeyLength} caracteres (256 bits) para HMAC-SHA256. Longitud detectada: {keyText.Length}.");
+        }
+
         var key = Encoding.UTF8.GetBytes(keyText);
 
         builder.Services.AddAuthentication(options =>
