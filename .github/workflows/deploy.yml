@@ -1,0 +1,67 @@
+name: CI/CD Pipeline - Build and Deploy to Azure App Service
+
+on:
+  push:
+    branches:
+      - main
+      - development
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    name: Build, Containerize and Deploy
+
+    steps:
+      # 1. Checkout del código fuente
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Configuración del entorno .NET 8
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # 3. Etapa: Restauración limpia de paquetes NuGet
+      - name: Restore dependencies
+        run: dotnet restore Dsw2025Tpi.sln
+
+      # 4. Etapa: Compilación limpia del proyecto
+      - name: Build solution (Release)
+        run: dotnet build Dsw2025Tpi.sln --configuration Release --no-restore
+
+      # 5. Autenticación en GitHub Container Registry (ghcr.io)
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 6. Normalización de nombre de imagen a minúsculas para Docker
+      - name: Set Docker image tag
+        run: |
+          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/dsw-api:latest"
+          echo "IMAGE_TAG=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      # 7. Etapa: Construcción y empaquetado de la imagen Docker Multi-Stage
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_TAG }}
+
+      # 8. Etapa: Despliegue automático hacia Azure App Service (Plan Free)
+      - name: Deploy container to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'ics-ecommerce-api'
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          images: ${{ env.IMAGE_TAG }}
