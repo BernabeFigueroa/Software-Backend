@@ -1,0 +1,92 @@
+name: Discord PR Review Notification
+
+on:
+  pull_request:
+    types: [review_requested]
+
+jobs:
+  notify-reviewer:
+    name: Notify Assigned Reviewer in Discord
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve Discord Mention and Send Notification
+        env:
+          REVIEWER_LOGIN: ${{ github.event.requested_reviewer.login }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.actor }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_REVIEW_WEBHOOK }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "::warning ::El secreto DISCORD_REVIEW_WEBHOOK no está configurado en GitHub Secrets."
+            exit 0
+          fi
+
+          # Mapeo: Usuario de GitHub -> ID de Discord
+          case "$REVIEWER_LOGIN" in
+            "larad12")
+              DISCORD_USER_ID="754138433802469397"
+              ;;
+            "Marcos564")
+              DISCORD_USER_ID="388492744621948929"
+              ;;
+            "Saimon0948")
+              DISCORD_USER_ID="702643419255930969"
+              ;;
+            "BernabeFigueroa")
+              DISCORD_USER_ID="712725491097796648"
+              ;;
+            *)
+              DISCORD_USER_ID=""
+              ;;
+          esac
+
+          if [ -n "$DISCORD_USER_ID" ]; then
+            MENTION="<@$DISCORD_USER_ID>"
+          else
+            MENTION="@$REVIEWER_LOGIN"
+          fi
+
+          ESCAPED_TITLE=$(echo "$PR_TITLE" | sed 's/"/\\"/g')
+
+          PAYLOAD=$(cat <<EOF
+          {
+            "content": "🔔 $MENTION ¡Tenés un nuevo Pull Request asignado para revisar en **Software-Backend**!",
+            "embeds": [
+              {
+                "title": "#$PR_NUMBER - $ESCAPED_TITLE",
+                "url": "$PR_URL",
+                "color": 5793266,
+                "fields": [
+                  {
+                    "name": "Autor",
+                    "value": "$PR_AUTHOR",
+                    "inline": true
+                  },
+                  {
+                    "name": "Revisor Asignado",
+                    "value": "$REVIEWER_LOGIN",
+                    "inline": true
+                  },
+                  {
+                    "name": "Flujo de Ramas",
+                    "value": "\`$HEAD_BRANCH\` ➔ \`$BASE_BRANCH\`",
+                    "inline": false
+                  }
+                ],
+                "footer": {
+                  "text": "Ingeniería y Calidad del Software • Peer Review"
+                }
+              }
+            ]
+          }
+          EOF
+          )
+
+          curl -H "Content-Type: application/json" \
+               -X POST \
+               -d "$PAYLOAD" \
+               "$DISCORD_WEBHOOK"
