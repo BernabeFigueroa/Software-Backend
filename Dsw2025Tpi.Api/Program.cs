@@ -162,11 +162,11 @@ public class Program
         var app = builder.Build();
 
         // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment())
+        app.UseSwagger();
+        app.UseSwaggerUI(c =>
         {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "Desarrollo de Software v1");
+        });
 
         // ========= Middleware Pipeline =========
         app.UseMiddleware<ExceptionMiddleware>();
@@ -177,6 +177,7 @@ public class Program
 
         app.MapControllers();
         app.MapHealthChecks("/healthcheck");
+        app.MapGet("/", () => Results.Redirect("/swagger"));
 
         app.Run();
     }
