@@ -1,67 +1,47 @@
-name: CI/CD Pipeline - Build and Deploy to Azure App Service
+name: Build and Deploy to Azure App Service (Publish Profile)
 
 on:
   push:
-    branches:
-      - main
-      - development
+    branches: [development, main]
+  pull_request:
+    branches: [development, main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-  packages: write
+env:
+  DOCKERHUB_USERNAME: bernabefigueroa
+  IMAGE_NAME: ics-backend
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
-    name: Build, Containerize and Deploy
-
     steps:
-      # 1. Checkout del código fuente
-      - name: Checkout code
+      - name: 1. Obtener el código
         uses: actions/checkout@v4
 
-      # 2. Configuración del entorno .NET 8
-      - name: Setup .NET SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
-
-      # 3. Etapa: Restauración limpia de paquetes NuGet
-      - name: Restore dependencies
-        run: dotnet restore Dsw2025Tpi.sln
-
-      # 4. Etapa: Compilación limpia del proyecto
-      - name: Build solution (Release)
-        run: dotnet build Dsw2025Tpi.sln --configuration Release --no-restore
-
-      # 5. Autenticación en GitHub Container Registry (ghcr.io)
-      - name: Log in to GitHub Container Registry
+      - name: 2. Iniciar sesión en Docker Hub
         uses: docker/login-action@v3
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          username: ${{ env.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 6. Normalización de nombre de imagen a minúsculas para Docker
-      - name: Set Docker image tag
+      - name: 3. Construir la imagen Docker (.NET 8)
         run: |
-          IMAGE_NAME="ghcr.io/${{ github.repository_owner }}/dsw-api:latest"
-          echo "IMAGE_TAG=$(echo "$IMAGE_NAME" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          docker build \
+            -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            -t ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest \
+            -f Dockerfile \
+            .
 
-      # 7. Etapa: Construcción y empaquetado de la imagen Docker Multi-Stage
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          tags: ${{ env.IMAGE_TAG }}
+      - name: 4. Subir la imagen a Docker Hub
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          docker push ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
 
-      # 8. Etapa: Despliegue automático hacia Azure App Service (Plan Free)
-      - name: Deploy container to Azure Web App
+      - name: 5. Desplegar el contenedor en Azure App Service
+        if: github.event_name != 'pull_request'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'ics-ecommerce-api'
+          app-name: ${{ secrets.APP_SERVICE_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          images: ${{ env.IMAGE_TAG }}
+          images: ${{ env.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
