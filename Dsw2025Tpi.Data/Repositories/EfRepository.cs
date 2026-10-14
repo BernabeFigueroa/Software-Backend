@@ -14,25 +14,24 @@ public class EfRepository<T> : IRepository<T> where T : EntityBase
         _context = context;
     }
 
+    // Add / Update / Delete solo registran los cambios en el contexto.
+    // La persistencia la realiza IUnitOfWork (SaveChangesAsync / ExecuteInTransactionAsync).
     public async Task<T> Add(T entity)
     {
         await _context.AddAsync(entity);
-        await _context.SaveChangesAsync();
         return entity;
     }
 
-    public async Task<T> Update(T entity)
+    public Task<T> Update(T entity)
     {
         _context.Update(entity);
-        await _context.SaveChangesAsync();
-        return entity;
+        return Task.FromResult(entity);
     }
 
-    public async Task<T> Delete(T entity)
+    public Task<T> Delete(T entity)
     {
         _context.Remove(entity);
-        await _context.SaveChangesAsync();
-        return entity;
+        return Task.FromResult(entity);
     }
 
     public async Task<T?> GetById(Guid id, params string[] include)

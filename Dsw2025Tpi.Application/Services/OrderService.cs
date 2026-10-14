@@ -17,28 +17,39 @@ public sealed class OrderService : IOrderService
     private readonly IRepository<Order> _orderRepository;
     private readonly IRepository<Product> _productRepository;
     private readonly IRepository<Customer> _customerRepository;
+    private readonly IUnitOfWork _unitOfWork;
     private readonly IMapper _mapper;
 
     public OrderService(
         IRepository<Order> orderRepository,
         IRepository<Product> productRepository,
         IRepository<Customer> customerRepository,
+        IUnitOfWork unitOfWork,
         IMapper mapper)
     {
         _orderRepository = orderRepository;
         _productRepository = productRepository;
         _customerRepository = customerRepository;
+        _unitOfWork = unitOfWork;
         _mapper = mapper;
     }
 
     // ===========================================================
     // 1) CREAR ORDEN
     // ===========================================================
+    // Todo el proceso (lectura y validación de stock, descuento de stock e inserción de la orden)
+    // se ejecuta dentro de una única transacción. Los repositorios solo registran los cambios y
+    // el Unit of Work los envía con un único SaveChanges + Commit. Si algo falla, se hace Rollback.
     public async Task<OrderResponse> CreateOrderAsync(Guid customerId, OrderRequest request)
     {
         if (request.OrderItems is null || !request.OrderItems.Any())
             throw new OrderWithoutItemsException();
 
+        return await _unitOfWork.ExecuteInTransactionAsync(() => CreateOrderCoreAsync(customerId, request));
+    }
+
+    private async Task<OrderResponse> CreateOrderCoreAsync(Guid customerId, OrderRequest request)
+    {
         // Validar cliente
         var customer = await _customerRepository.GetById(customerId);
         if (customer is null)
@@ -105,11 +116,14 @@ public sealed class OrderService : IOrderService
                 prod.CurrentUnitPrice
             );
 
+            // Se registra el descuento de stock (sin persistir todavía)
             prod.DecreaseStock(itemReq.Quantity);
             await _productRepository.Update(prod);
         }
 
         order.ValidateHasItems();
+
+        // Se registra la orden (sin persistir todavía)
         await _orderRepository.Add(order);
 
         return _mapper.Map<OrderResponse>(order);
@@ -166,6 +180,7 @@ public sealed class OrderService : IOrderService
         }
 
         await _orderRepository.Update(order);
+        await _unitOfWork.SaveChangesAsync();
 
         return _mapper.Map<OrderResponse>(order);
     }
