@@ -15,6 +15,7 @@ public class Program
         builder.Services.AddHealthChecks();
 
         builder.Services.AddSwaggerConfiguration();
+        builder.Services.AddDomainServices(builder.Configuration);
         builder.Services.AddSecurityConfiguration(builder.Configuration);
       
         builder.Services.AddCorsConfiguration();
