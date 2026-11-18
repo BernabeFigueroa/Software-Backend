@@ -34,7 +34,7 @@ public class ProductRequestValidator : AbstractValidator<ProductRequest>
 
         // Stock Validation
         RuleFor(p => p.StockQuantity)
-            .GreaterThanOrEqualTo(0).WithMessage("El stock no puede ser negativo.");
+            .GreaterThan(0).WithMessage("El stock inicial debe ser mayor a 0.");
 
         // ImageUrl Validation (Optional field)
         RuleFor(p => p.ImageUrl)

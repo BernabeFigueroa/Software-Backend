@@ -7,6 +7,9 @@ Containerizada con Docker multi-stage y desplegada en Azure App Service con pipe
 
 ```
 Dsw2025Tpi.sln
+├── tests/
+│   ├── Dsw2025Tpi.UnitTests        → Pruebas unitarias con xUnit y Moq
+│   └── Dsw2025Tpi.IntegrationTests → Pruebas de integración con SQLite en memoria
 ├── Dsw2025Tpi.Api          → Controllers, Program.cs, Middleware
 ├── Dsw2025Tpi.Application  → Servicios, DTOs, Mapeos
 ├── Dsw2025Tpi.Domain       → Entidades y reglas de negocio
@@ -79,6 +82,34 @@ No se permiten commits directos a `main` ni `development`. Todo cambio entra por
 | `hotfix/<descripcion>` | Correcciones urgentes (nace de `main`) |
 
 Commits con formato [Conventional Commits](https://www.conventionalcommits.org/): `tipo(scope): descripción`
+
+## Pruebas automatizadas
+
+Desde la raíz del repositorio, con el SDK de .NET 8, ejecutá todas las pruebas:
+
+```bash
+dotnet test Dsw2025Tpi.sln
+```
+
+Para ejecutar solo las pruebas de creación de productos:
+
+```bash
+dotnet test tests/Dsw2025Tpi.UnitTests/Dsw2025Tpi.UnitTests.csproj --filter FullyQualifiedName~ProductServiceTests
+```
+
+### Creación de productos (TP4)
+
+Las pruebas de [`ProductServiceTests`](tests/Dsw2025Tpi.UnitTests/ProductServiceTests.cs) llaman a `ProductService.CreateAsync` y simulan el repositorio y la unidad de trabajo con Moq. Siguen el patrón **Arrange, Act, Assert**: preparar los datos, ejecutar la operación y verificar el resultado.
+
+| Escenario | Comportamiento esperado |
+|---|---|
+| iPhone con datos válidos | Devuelve el producto y llama una sola vez a `Add` y a `SaveChangesAsync`. |
+| AirPods existentes con el mismo SKU | Lanza `ProductSkuAlreadyExistsException` y no agrega ni guarda otro producto. |
+| Stock cero, stock negativo o precio negativo | Lanza el error correspondiente antes de consultar el repositorio o guardar cambios. |
+
+Los tres escenarios se ejecutan como cinco casos. La validación de valores inválidos es una prueba parametrizada con tres entradas. El stock inicial debe ser positivo al crear un producto. Un producto existente puede quedar con stock cero.
+
+Las pruebas unitarias no necesitan una base de datos. Las de integración inician la API en entorno `Testing` con SQLite en memoria.
 
 ## 📄 Sobre el Proyecto
 
