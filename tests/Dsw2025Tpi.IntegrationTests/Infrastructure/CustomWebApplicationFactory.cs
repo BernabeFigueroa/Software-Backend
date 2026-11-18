@@ -1,6 +1,7 @@
 using Dsw2025Tpi.Api;
 using Dsw2025Tpi.Data;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -38,6 +39,7 @@ public sealed class CustomWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
+            services.AddDataProtection().UseEphemeralDataProtectionProvider();
             ReplaceContext<Dsw2025TpiContext>(services, _businessConnection);
             ReplaceContext<AuthenticateContext>(services, _identityConnection);
         });
