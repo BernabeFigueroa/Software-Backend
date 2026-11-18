@@ -25,8 +25,20 @@ public sealed class ProductService : IProductService
     // 1) Crear producto  → POST /api/products
     public async Task<ProductResponse> CreateAsync(ProductRequest request)
     {
-        var skuLower = request.Sku.Trim().ToLowerInvariant();
-        var codeLower = request.InternalCode.Trim().ToLowerInvariant();
+        if (request.StockQuantity <= 0)
+            throw new InvalidProductStockException("El stock inicial debe ser mayor a 0.");
+
+        var product = Product.Create(
+            request.Sku,
+            request.InternalCode,
+            request.Name,
+            request.Description ?? string.Empty,
+            request.CurrentUnitPrice,
+            request.StockQuantity,
+            request.ImageUrl);
+
+        var skuLower = product.Sku.ToLowerInvariant();
+        var codeLower = product.InternalCode.ToLowerInvariant();
 
         // Buscar por SKU o InternalCode (activos o inactivos)
         var existing = await _productRepository.First(p =>
@@ -36,7 +48,7 @@ public sealed class ProductService : IProductService
         if (existing is not null)
         {
             // Determinar si el conflicto es por SKU o InternalCode
-            var isSkuConflict = existing.Sku.Equals(request.Sku, StringComparison.OrdinalIgnoreCase);
+            var isSkuConflict = existing.Sku.Equals(product.Sku, StringComparison.OrdinalIgnoreCase);
 
             if (isSkuConflict)
             {
@@ -57,17 +69,6 @@ public sealed class ProductService : IProductService
                 throw new ProductInternalCodeAlreadyExistsException(request.InternalCode, existing.Id);
             }
         }
-
-        // Si no existe, creamos el producto normalmente
-        // Las validaciones de precio, stock, SKU, etc. se lanzan automáticamente desde Product.Create()
-        var product = Product.Create(
-            request.Sku,
-            request.InternalCode,
-            request.Name,
-            request.Description ?? string.Empty,
-            request.CurrentUnitPrice,
-            request.StockQuantity,
-            request.ImageUrl);
 
         await _productRepository.Add(product);
         await _unitOfWork.SaveChangesAsync();

@@ -6,4 +6,7 @@ public sealed class InvalidProductStockException : ExceptionBase
 {
     public InvalidProductStockException()
         : base("PRODUCT_INVALID_STOCK") { }
+
+    public InvalidProductStockException(string message)
+        : base("PRODUCT_INVALID_STOCK", message) { }
 }
