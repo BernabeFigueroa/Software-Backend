@@ -61,7 +61,7 @@ public sealed class ProductsApiTests(CustomWebApplicationFactory factory)
 
         Assert.Contains(response.StatusCode, new[] { HttpStatusCode.BadRequest, HttpStatusCode.Conflict });
         var error = Assert.IsType<ApiError>(await response.Content.ReadFromJsonAsync<ApiError>());
-        Assert.Equal("PRODUCT_SKU_ALREADY_EXISTS", error.Code);
+        Assert.Equal("PRODUCT_SKU_ALREADY_EXIST}S", error.Code);
         Assert.Contains(original.Sku, error.Message);
         await WithDatabaseAsync(async db =>
         {

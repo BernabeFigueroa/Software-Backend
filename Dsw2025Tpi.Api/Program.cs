@@ -17,7 +17,7 @@ public class Program
         builder.Services.AddSwaggerConfiguration();
         builder.Services.AddDomainServices(builder.Configuration);
         builder.Services.AddSecurityConfiguration(builder.Configuration);
-      
+
         builder.Services.AddCorsConfiguration();
 
         var app = builder.Build();
