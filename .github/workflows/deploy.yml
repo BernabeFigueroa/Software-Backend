@@ -12,7 +12,27 @@ env:
   IMAGE_NAME: ics-backend
 
 jobs:
+  run-tests:
+    name: Quality Gate - Ejecutar Pruebas Automatizadas
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Obtener el código
+        uses: actions/checkout@v4
+
+      - name: 2. Configurar SDK de .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: 3. Restaurar dependencias
+        run: dotnet restore
+
+      - name: 4. Ejecutar pruebas unitarias y de integración
+        run: dotnet test --no-restore --verbosity normal
+
   build-and-deploy:
+    name: Build Docker & Deploy to Azure
+    needs: run-tests
     runs-on: ubuntu-latest
     steps:
       - name: 1. Obtener el código
